@@ -1,0 +1,108 @@
+#! /bin/bash
+
+########################################
+######### Check Requirements ###########
+########################################
+if [[ -z `which fzf` ]]; then
+	cat <<EOF
+	Install fzf:
+	debain:
+		apt install fzf
+	rpm:
+		yum install fzf
+EOF
+elif [[ -z `which ct` ]];then
+	cat <<EOF
+	Install chromaterm:
+		pip insatll chromaterm
+EOF
+fi
+########################################
+######## Bash Autocompletion ###########
+########################################
+declare -a COMMANDS=(copy-key connect list help)
+
+if [[ -n $COMP_LINE ]]; then
+    for c in "${COMMANDS[@]}"; do
+        [[ ${c:0:${#2}} == "${2,,}" ]] && echo "$c"
+    done
+    exit
+fi
+########################################
+############# Variables ################
+########################################
+HOSTS_HOME="$HOME/.config/fuzzy-ssh"
+HOSTS_FILE="$HOSTS_HOME/fuzzy-ssh.hosts"
+PASSWD_FILE="$HOSTS_HOME/passwd"
+KEY_HOME="$HOME/.ssh"
+PUBKEY_FILE="$KEY_HOME/devops.pub"
+PRVBKEY_FILE="$KEY_HOME/devops"
+! test -d $HOSTS_HOME && mkdir -p $HOSTS_HOME
+! test -f $HOSTS_FILE && cat > $HOSTS_FILE <<EOF
+group|sugroup|hostname|username|host IP|jump IP|jump port|jump username|pem path
+EOF
+########################################
+############## Functions ###############
+########################################
+_connect(){
+	if [[ -z $1 ]]; then
+		SESSION=`cat $HOSTS_FILE | tail +2 | \
+			column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path -o "|" | \
+			fzf --reverse | awk -F "|" '{print $4"@"$5}' | tr -d " "`
+		[[ ! -z $SESSION ]] && ssh -i $PRVBKEY_FILE $SESSION | ct
+	else
+		ssh $1 | ct
+	fi
+}
+
+_list(){
+
+	if [[ -z $1 ]]; then
+		cat $HOSTS_FILE | tail +2 | \
+			column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path | fzf --reverse -m | \
+			column -t -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path
+	elif [[ $1 == "copy" ]]; then
+		cat $HOSTS_FILE | tail +2 | \
+			column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path | fzf --reverse -m | \
+			column -t -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path | xsel -bi
+	fi
+}
+
+_copy_key(){
+	if [[ -z $1 ]]; then
+		HOST_ADDR=`cat $HOSTS_FILE | tail +2 | \
+			column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path -o "|" | \
+			fzf --reverse | awk -F "|" '{print $4"@"$5}' | tr -d " "`
+		[[ -z $HOST_ADDR ]] && exit 1
+		PASSWD_LINE=$(cat $PASSWD_FILE | tail +2 | cut -d "|" -f1 | fzf --reverse)
+		[[ -z $PASSWD_LINE ]] && exit 1
+		PASSWD=$(grep "$PASSWD_LINE" $PASSWD_FILE | cut -d "|" -f2)
+		[[ -z $PASSWD ]] && exit 1
+		echo $HOST_ADDR
+		sshpass -p $(echo "$PASSWD" |base64 -d) ssh-copy-id -o StrictHostKeyChecking=no -i $PUBKEY_FILE $HOST_ADDR
+	else
+		ssh-copy-id -i  $1
+	fi
+}
+
+_help(){
+	echo -e "Fuzzy-ssh v0.1"
+	echo -e "Commands:"
+	echo -e "  conncet\tConnect to ssh session"
+	echo -e "  copy-key\tCopy ssh id to remote"
+	echo -e "  help\tShow this message"
+}
+
+shift $((OPTIND-1))
+[ "${1:-}" = "--" ] && shift
+
+case $1 in
+	connect)
+		_connect $2 ;;
+	copy-key)
+		_copy_key ;;
+	list)
+		_list $2 ;;
+	help)
+		_help ;;
+esac
