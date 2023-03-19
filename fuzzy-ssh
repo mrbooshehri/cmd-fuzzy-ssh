@@ -20,7 +20,7 @@ fi
 ########################################
 ######## Bash Autocompletion ###########
 ########################################
-declare -a COMMANDS=(copy-key connect list help)
+declare -a COMMANDS=(add-pass copy-key connect conf list help pass)
 
 if [[ -n $COMP_LINE ]]; then
     for c in "${COMMANDS[@]}"; do
@@ -40,6 +40,9 @@ PRVBKEY_FILE="$KEY_HOME/devops"
 ! test -d $HOSTS_HOME && mkdir -p $HOSTS_HOME
 ! test -f $HOSTS_FILE && cat > $HOSTS_FILE <<EOF
 group|sugroup|hostname|username|host IP|jump IP|jump port|jump username|pem path
+EOF
+! test -f $PASSWD_FILE && cat > $PASSWD_FILE <<EOF
+Title|password
 EOF
 ########################################
 ############## Functions ###############
@@ -69,27 +72,50 @@ _list(){
 }
 
 _copy_key(){
-	if [[ -z $1 ]]; then
-		HOST_ADDR=`cat $HOSTS_FILE | tail +2 | \
-			column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path -o "|" | \
-			fzf --reverse | awk -F "|" '{print $4"@"$5}' | tr -d " "`
-		[[ -z $HOST_ADDR ]] && exit 1
-		PASSWD_LINE=$(cat $PASSWD_FILE | tail +2 | cut -d "|" -f1 | fzf --reverse)
-		[[ -z $PASSWD_LINE ]] && exit 1
-		PASSWD=$(grep "$PASSWD_LINE" $PASSWD_FILE | cut -d "|" -f2)
-		[[ -z $PASSWD ]] && exit 1
-		echo $HOST_ADDR
-		sshpass -p $(echo "$PASSWD" |base64 -d) ssh-copy-id -o StrictHostKeyChecking=no -i $PUBKEY_FILE $HOST_ADDR
-	else
-		ssh-copy-id -i  $1
-	fi
+    if [[ -z $1 ]]; then
+			HOST_ADDR=(`cat $HOSTS_FILE | tail +2 | \
+            column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path -o "|" | \
+						fzf --reverse -m | awk -F "|" '{print $4"@"$5}' | tr -d " "`)
+        [[ -z $HOST_ADDR ]] && exit 1
+        PASSWD_LINE=$(cat $PASSWD_FILE | tail +2 | cut -d "|" -f1 | fzf --reverse)
+        [[ -z $PASSWD_LINE ]] && exit 1
+        PASSWD=$(grep "$PASSWD_LINE" $PASSWD_FILE | cut -d "|" -f2)
+        [[ -z $PASSWD ]] && exit 1
+				# Copy multiple keys at once
+        for i in ${HOST_ADDR[@]};
+        do
+					echo -e "Copying key to [ $i ]"
+          sshpass -p $(echo "$PASSWD" |base64 -d) ssh-copy-id -o StrictHostKeyChecking=no -i $PUBKEY_FILE $i
+        done
+    else
+        ssh-copy-id -i  $1
+    fi
+
+}
+
+
+_conf(){
+	vim $HOSTS_FILE
+}
+
+_passwords(){
+	vim $PASSWD_FILE
+}
+
+_add-pass(){
+	read -p "Enter the passowrd title: " TITLE
+	read -sp "Enter the passrod: " PASSWORD
+	[[ ! -z "$TITLE" && ! -z "$PASSWORD" ]] && echo "$TITLE|$(echo $PASSWORD | base64)" >> $PASSWD_FILE && echo -e "\nPassword successfully added"
 }
 
 _help(){
 	echo -e "Fuzzy-ssh v0.1"
 	echo -e "Commands:"
+	echo -e "  add-password\tAdd password to password file"
 	echo -e "  conncet\tConnect to ssh session"
 	echo -e "  copy-key\tCopy ssh id to remote"
+	echo -e "  conf\tOpen config file"
+	echo -e "  pass\tOpen password file"
 	echo -e "  help\tShow this message"
 }
 
@@ -103,6 +129,10 @@ case $1 in
 		_copy_key ;;
 	list)
 		_list $2 ;;
+	pass) _passwords ;;
+	add-pass) _add-pass ;;
+	conf)
+		_conf ;;
 	help)
 		_help ;;
 esac
