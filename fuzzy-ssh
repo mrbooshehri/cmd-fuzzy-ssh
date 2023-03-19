@@ -11,11 +11,13 @@ if [[ -z `which fzf` ]]; then
 	rpm:
 		yum install fzf
 EOF
+	exit 1
 elif [[ -z `which ct` ]];then
 	cat <<EOF
 	Install chromaterm:
 		pip insatll chromaterm
 EOF
+	exit 1
 fi
 ########################################
 ######## Bash Autocompletion ###########
@@ -93,7 +95,6 @@ _copy_key(){
 
 }
 
-
 _conf(){
 	vim $HOSTS_FILE
 }
@@ -114,9 +115,10 @@ _help(){
 	echo -e "  add-password\tAdd password to password file"
 	echo -e "  conncet\tConnect to ssh session"
 	echo -e "  copy-key\tCopy ssh id to remote"
-	echo -e "  conf\tOpen config file"
-	echo -e "  pass\tOpen password file"
-	echo -e "  help\tShow this message"
+	echo -e "  conf\t\tOpen config file"
+	echo -e "  pass\t\tOpen password file"
+	echo -e "  list\t\tList all the sessions and print the selected ones in stdout, you can call it with 'copy' option to copy to clipboard"
+	echo -e "  help\t\tShow this message"
 }
 
 shift $((OPTIND-1))
