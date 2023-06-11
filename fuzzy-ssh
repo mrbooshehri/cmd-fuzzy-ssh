@@ -54,7 +54,7 @@ _connect(){
 		SESSION=`cat $HOSTS_FILE | tail +2 | \
 			column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path -o "|" | \
 			fzf --reverse | awk -F "|" '{print $4"@"$5}' | tr -d " "`
-		[[ ! -z $SESSION ]] && ssh -i $PRVBKEY_FILE $SESSION | ct
+		[[ ! -z $SESSION ]] && echo -e "Connceting to [ $SESSION ]" && ssh -i $PRVBKEY_FILE $SESSION | ct
 	else
 		ssh $1 | ct
 	fi
@@ -137,4 +137,6 @@ case $1 in
 		_conf ;;
 	help)
 		_help ;;
+	*)
+		_connect $2 ;;
 esac
