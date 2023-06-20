@@ -90,7 +90,12 @@ _copy_key(){
           sshpass -p $(echo "$PASSWD" |base64 -d) ssh-copy-id -o StrictHostKeyChecking=no -i $PUBKEY_FILE $i
         done
     else
-        ssh-copy-id -i  $1
+
+			HOST_ADDR=(`cat $HOSTS_FILE | tail +2 | \
+            column -t -s "|" -N Group,Subgroup,Hostname,Username,IP,Jump\ IP,Jump\ Port,Jump\ Username,Pem\ Path -T Jump\ IP,Pem\ Path -o "|" | \
+						fzf --reverse -m | awk -F "|" '{print $4"@"$5}' | tr -d " "`)
+        [[ -z $HOST_ADDR ]] && exit 1
+      sshpass -p $1 ssh-copy-id -o StrictHostKeyChecking=no -i $PUBKEY_FILE $HOST_ADDR
     fi
 
 }
@@ -128,7 +133,7 @@ case $1 in
 	connect)
 		_connect $2 ;;
 	copy-key)
-		_copy_key ;;
+		_copy_key $2 ;;
 	list)
 		_list $2 ;;
 	pass) _passwords ;;
