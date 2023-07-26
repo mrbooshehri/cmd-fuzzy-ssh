@@ -81,7 +81,7 @@ _copy_key(){
         [[ -z $HOST_ADDR ]] && exit 1
         PASSWD_LINE=$(cat $PASSWD_FILE | tail +2 | cut -d "|" -f1 | fzf --reverse)
         [[ -z $PASSWD_LINE ]] && exit 1
-        PASSWD=$(grep "$PASSWD_LINE" $PASSWD_FILE | cut -d "|" -f2)
+        PASSWD=$(grep -F "$PASSWD_LINE" $PASSWD_FILE | cut -d "|" -f2)
         [[ -z $PASSWD ]] && exit 1
 				# Copy multiple keys at once
         for i in ${HOST_ADDR[@]};
